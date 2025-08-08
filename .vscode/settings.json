@@ -1,0 +1,7 @@
+{
+  "files.watcherExclude": {
+    "**/target": true
+  },
+  "editor.formatOnSave": true,
+  "metals.organizeImportsOnSave": true
+}
