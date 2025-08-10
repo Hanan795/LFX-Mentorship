@@ -2,17 +2,16 @@ package stack
 
 import chisel3.stage.ChiselStage
 import java.nio.file.Paths
-
-// Your code starts here
 import chisel3._
 import chisel3.util._
 
+// Your code starts here
 class stack_memModule(dataWidth: Int, len: Int) extends Module {
   require(dataWidth > 0)
   require(len > 0)
 
   val io = IO(new Bundle {
-    val in = Input(UInt(dataWidth.W))
+    val in = Input(UInt(32.W))
     val out = Output(UInt(dataWidth.W))
     val underflow = Output(Bool())
     val overflow = Output(Bool())
@@ -22,16 +21,22 @@ class stack_memModule(dataWidth: Int, len: Int) extends Module {
     val peeked = Output(Bool())
   })
 
+  // --- State Elements ---
   val stack_mem = Reg(Vec(len, UInt(dataWidth.W)))
+  val sp = RegInit(0.U(log2Ceil(len + 1).W))
+
+  // Opcodes at bits [6:0]
   val push_op = "b0100111".U(7.W)
   val pop_op = "b1000011".U(7.W)
   val peek_op = "b1000000".U(7.W)
 
-  val sp = RegInit(0.U(log2Ceil(len + 1).W))
   val reg = Reg(UInt(dataWidth.W))
 
   reg := io.in
-  val opcode = reg(6, 0)
+
+  // --- Input Decoding (Combinational) ---
+  val opcode = io.in(6, 0)
+  val payload = io.in(31, 7) // 25-bit immediate
 
   // Default outputs
   io.out := 0.U
