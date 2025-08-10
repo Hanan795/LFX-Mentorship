@@ -30,25 +30,33 @@ class stack_memModule(dataWidth: Int, len: Int) extends Module {
   val pop_op = "b1000011".U(7.W)
   val peek_op = "b1000000".U(7.W)
 
-  val reg = Reg(UInt(dataWidth.W))
-
-  reg := io.in
-
   // --- Input Decoding (Combinational) ---
   val opcode = io.in(6, 0)
   val payload = io.in(31, 7) // 25-bit immediate
 
-  // Default outputs
-  io.out := 0.U
-  io.underflow := false.B
-  io.overflow := false.B
+  // zero-extend the 25-bit immediate to dataWidth
+  val padWidth = (dataWidth - 25).max(0)
+  val paddedPayload =
+    if (padWidth > 0) Cat(0.U(padWidth.W), payload)
+    else payload
+  val data = paddedPayload(dataWidth - 1, 0)
+
+  // Output Registers (stateful)
+  val out_reg = RegInit(0.U(dataWidth.W))
+  val underflowReg = RegInit(false.B)
+  val overflowReg = RegInit(false.B)
+  val poppedReg = RegInit(false.B)
+  val peekedReg = RegInit(false.B)
+
+  // --- Clear pulse flags and default output at start of cycle ---
+  underflowReg := false.B
+  overflowReg := false.B
+  poppedReg := false.B
+  peekedReg := false.B
+
+  // status (combinational view of sp)
   io.isEmpty := (sp === 0.U)
   io.isFull := (sp === len.U)
-  io.popped := false.B
-  io.peeked := false.B
-
-  val empty = (sp === 0.U)
-  val full = (sp === len.U)
 
   switch(opcode) {
     is(push_op) {
