@@ -7,8 +7,8 @@ import chisel3.util._
 
 // Your code starts here
 class stack_memModule(dataWidth: Int, len: Int) extends Module {
-  require(dataWidth > 0)
-  require(len > 0)
+  require(dataWidth > 0, "Data width must be positive")
+  require(len > 0, "Stack length must be positive")
 
   val io = IO(new Bundle {
     val in = Input(UInt(32.W))
@@ -58,30 +58,52 @@ class stack_memModule(dataWidth: Int, len: Int) extends Module {
   io.isEmpty := (sp === 0.U)
   io.isFull := (sp === len.U)
 
+  // --- Main Logic (state updates on clock edge) ---
   switch(opcode) {
     is(push_op) {
-      when(full) { io.overflow := true.B }.otherwise {
-        stack_mem(sp) := Cat(0.U(7.W), reg(dataWidth - 1, 7))
+      when(sp === len.U) {
+        // can't push, signal overflow (one-cycle pulse)
+        overflowReg := true.B
+        out_reg := 0.U
+      }.otherwise {
+        // store zero-extended data
+        stack_mem(sp) := data
         sp := sp + 1.U
+        out_reg := 0.U
       }
     }
 
     is(pop_op) {
-      when(empty) { io.underflow := true.B }.otherwise {
-        io.out := stack_mem(sp - 1.U)
-        io.popped := true.B
-        sp := sp - 1.U
+      when(sp === 0.U) {
+        underflowReg := true.B
+        out_reg := 0.U
+      }.otherwise {
+        val tempSp = sp - 1.U
+        val value = stack_mem(tempSp)
+        out_reg := value
+        sp := tempSp
+        poppedReg := true.B
       }
     }
 
     is(peek_op) {
-      when(empty) { io.underflow := true.B }.otherwise {
-        io.out := stack_mem(sp - 1.U)
-        io.peeked := true.B
+      when(sp === 0.U) {
+        underflowReg := true.B
+        out_reg := 0.U
+      }.otherwise {
+        val value = stack_mem(sp - 1.U)
+        out_reg := value
+        peekedReg := true.B
       }
     }
-
   }
+
+  // drive I/Os from regs
+  io.out := out_reg
+  io.underflow := underflowReg
+  io.overflow := overflowReg
+  io.popped := poppedReg
+  io.peeked := peekedReg
 }
 
 // Your code ends here
